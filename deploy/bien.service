@@ -1,0 +1,25 @@
+[Unit]
+Description=Bien - AI life-management Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=anglekawaii
+WorkingDirectory=/home/anglekawaii/Bien
+
+# node + the claude/codex CLI must be discoverable here.
+# If `which node` on your server prints something NOT under one of these dirs
+# (e.g. an nvm path like /home/anglekawaii/.nvm/versions/node/v22.11.0/bin),
+# add that directory to the FRONT of this PATH.
+Environment=PATH=/home/anglekawaii/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+# The app reads /home/anglekawaii/Bien/.env on its own (dotenv), so no EnvironmentFile needed.
+ExecStart=/usr/bin/env node src/index.js
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

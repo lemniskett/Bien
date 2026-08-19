@@ -1,0 +1,22 @@
+{
+  "name": "bien",
+  "version": "0.1.0",
+  "description": "Bien — a general-purpose life-management Discord bot powered by an AI CLI (claude/codex)",
+  "type": "module",
+  "bin": {
+    "bien": "src/cli/bien.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "bien": "node src/cli/bien.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cron-parser": "^5.10.0",
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.4.5"
+  },
+  "license": "MIT"
+}

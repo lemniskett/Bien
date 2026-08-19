@@ -1,0 +1,13 @@
+node_modules/
+.env
+*.log
+
+# Bot-owned runtime state
+data/sessions.json
+data/roster.json
+
+# The AI's memory workspace (personal data). Keep the committed contract + index starter,
+# ignore the AI's own memory/data files.
+workspace/*
+!workspace/AGENTS.md
+!workspace/INDEX.md

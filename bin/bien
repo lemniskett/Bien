@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node "/Volumes/ANGELDRIVE/Projects/bien/src/cli/bien.js" "$@"

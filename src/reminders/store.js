@@ -57,6 +57,7 @@ export async function createReminder({
     fired_count: 0,
     last_fired_at: null,
     next_fire_at: iso,
+    last_message_id: null,
   };
   await writeJsonAtomic(fileFor(record.id), record);
   return record;

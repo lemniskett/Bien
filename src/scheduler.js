@@ -8,7 +8,11 @@ import {
 } from './reminders/store.js';
 import { listSchedules, saveSchedule } from './schedules/store.js';
 import { nextFireUtc } from './schedules/cron.js';
-import { sendReminderPing, sendToChannel } from './discord/reminderNotifier.js';
+import {
+  sendReminderPing,
+  sendToChannel,
+  clearReminderButton,
+} from './discord/reminderNotifier.js';
 
 function nextRecurrenceISO(dueISO, recurrence) {
   const stepMs = recurrence === 'daily' ? 86_400_000 : recurrence === 'weekly' ? 7 * 86_400_000 : 0;
@@ -28,25 +32,29 @@ export function createScheduler({ client, runner }) {
     for (const r of reminders) {
       try {
         if (r.status === 'scheduled' && new Date(r.due_at).getTime() <= now) {
-          await sendReminderPing(client, r, { pingNum: 1, nagMax: config.nagMax });
+          const msg = await sendReminderPing(client, r, { pingNum: 1, nagMax: config.nagMax });
           await saveReminder({
             ...r,
             status: 'nagging',
             fired_count: 1,
             last_fired_at: new Date(now).toISOString(),
             next_fire_at: new Date(now + config.nagIntervalMs).toISOString(),
+            last_message_id: msg?.id ?? null,
           });
         } else if (r.status === 'nagging' && new Date(r.next_fire_at).getTime() <= now) {
           if (r.fired_count >= config.nagMax) {
+            await clearReminderButton(client, r.channel_id, r.last_message_id);
             await saveReminder({ ...r, status: 'exhausted' });
           } else {
             const pingNum = r.fired_count + 1;
-            await sendReminderPing(client, r, { pingNum, nagMax: config.nagMax });
+            await clearReminderButton(client, r.channel_id, r.last_message_id);
+            const msg = await sendReminderPing(client, r, { pingNum, nagMax: config.nagMax });
             await saveReminder({
               ...r,
               fired_count: pingNum,
               last_fired_at: new Date(now).toISOString(),
               next_fire_at: new Date(now + config.nagIntervalMs).toISOString(),
+              last_message_id: msg?.id ?? null,
             });
           }
         } else if (

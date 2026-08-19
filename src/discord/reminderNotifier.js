@@ -73,6 +73,19 @@ export async function sendReminderPing(client, reminder, { pingNum, nagMax }) {
   });
 }
 
+/** Best-effort: remove the Acknowledge button from a previously-sent ping message. */
+export async function clearReminderButton(client, channelId, messageId) {
+  if (!messageId) return;
+  try {
+    const channel = await fetchChannel(client, channelId);
+    if (!channel) return;
+    const message = await channel.messages.fetch(messageId);
+    await message.edit({ components: [] });
+  } catch (err) {
+    logger.warn(`[notify] could not clear button on message ${messageId}: ${err.message}`);
+  }
+}
+
 /** Handle the Acknowledge button. Returns true if it was an ack interaction. */
 export async function handleAckInteraction(interaction) {
   if (!interaction.isButton?.() || !interaction.customId.startsWith(ACK_PREFIX)) return false;
@@ -97,4 +110,10 @@ export async function handleAckInteraction(interaction) {
   return true;
 }
 
-export default { sendToChannel, sendReminderPing, handleAckInteraction, chunk };
+export default {
+  sendToChannel,
+  sendReminderPing,
+  clearReminderButton,
+  handleAckInteraction,
+  chunk,
+};

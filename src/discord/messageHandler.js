@@ -4,6 +4,9 @@ import { readRoster } from '../roster.js';
 import { chunk } from './reminderNotifier.js';
 import { downloadImages } from './attachments.js';
 
+// Whole-word match for the bot's name, tolerating elongated spellings (bbbbien, biieeeenn, biennnnnn).
+const NAME_TRIGGER = /\bb+i+e+n+\b/i;
+
 function localNow() {
   const now = new Date();
   const shifted = new Date(now.getTime() + config.timezoneOffsetMinutes * 60_000);
@@ -50,7 +53,8 @@ export function createMessageHandler({ client, runner }) {
       if (message.author.bot) return;
       const inGuild = Boolean(message.guildId);
       const mentioned = message.mentions?.users?.has(client.user.id);
-      if (inGuild && !mentioned) return; // in servers, only respond when tagged
+      const named = NAME_TRIGGER.test(message.content);
+      if (inGuild && !mentioned && !named) return; // in servers: tagged, replied, or named
 
       const cleanText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
       const images = await downloadImages(message);

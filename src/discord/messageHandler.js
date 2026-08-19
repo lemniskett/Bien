@@ -3,6 +3,7 @@ import { logger } from '../logger.js';
 import { readRoster } from '../roster.js';
 import { chunk } from './reminderNotifier.js';
 import { downloadImages } from './attachments.js';
+import { touch, isActive, activeCount } from './activeSessions.js';
 
 // Whole-word match for the bot's name, tolerating elongated spellings (bbbbien, biieeeenn, biennnnnn).
 const NAME_TRIGGER = /\bb+i+e+n+\b/i;
@@ -52,13 +53,22 @@ export function createMessageHandler({ client, runner }) {
     try {
       if (message.author.bot) return;
       const inGuild = Boolean(message.guildId);
+      const now = Date.now();
+      const channelId = message.channelId;
+      const userId = message.author.id;
       const mentioned = message.mentions?.users?.has(client.user.id);
       const named = NAME_TRIGGER.test(message.content);
-      if (inGuild && !mentioned && !named) return; // in servers: tagged, replied, or named
+      const triggered = mentioned || named;
+      // In servers: respond if tagged/replied/named OR the user has an active session.
+      // (DMs always proceed, as before.)
+      if (inGuild && !triggered && !isActive(channelId, userId, now)) return;
 
       const cleanText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
       const images = await downloadImages(message);
       if (!cleanText && images.length === 0) return; // nothing to act on
+
+      touch(channelId, userId, config.sessionTtlMs, now); // start/extend this user's session
+      const useReply = activeCount(channelId, now) >= 2; // quote only when 2+ users are active
 
       if (message.channel.sendTyping) message.channel.sendTyping().catch(() => {});
 
@@ -72,8 +82,11 @@ export function createMessageHandler({ client, runner }) {
       const reply = await runner.run({ prompt, channelId: message.channelId, env });
       const chunks = chunk(reply);
       for (let i = 0; i < chunks.length; i++) {
-        if (i === 0) await message.reply({ content: chunks[i], allowedMentions: { repliedUser: true } });
-        else await message.channel.send({ content: chunks[i], allowedMentions: { parse: [] } });
+        if (i === 0 && useReply) {
+          await message.reply({ content: chunks[i], allowedMentions: { repliedUser: true } });
+        } else {
+          await message.channel.send({ content: chunks[i], allowedMentions: { parse: [] } });
+        }
       }
     } catch (err) {
       logger.error(`[message] handler error: ${err.stack || err.message}`);

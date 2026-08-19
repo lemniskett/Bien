@@ -86,6 +86,7 @@ export const config = {
   nagIntervalMs: optionalInt('NAG_INTERVAL_MS', 300_000),
   nagMax: optionalInt('NAG_MAX', 12),
   aiTimeoutMs: optionalInt('AI_TIMEOUT_MS', 120_000),
+  sessionTtlMs: optionalInt('SESSION_TTL_MS', 300_000), // 5 min sliding window for active convo
 };
 
 /**

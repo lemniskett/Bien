@@ -3,6 +3,7 @@ import { logger } from '../logger.js';
 import { readRoster } from '../roster.js';
 import { chunk } from './reminderNotifier.js';
 import { downloadImages } from './attachments.js';
+import { parseOutbound } from './outboundAttachments.js';
 import { touch, isActive, activeCount } from './activeSessions.js';
 
 // Whole-word match for the bot's name, tolerating elongated spellings (bbbbien, biieeeenn, biennnnnn).
@@ -80,12 +81,30 @@ export function createMessageHandler({ client, runner }) {
       };
 
       const reply = await runner.run({ prompt, channelId: message.channelId, env });
-      const chunks = chunk(reply);
-      for (let i = 0; i < chunks.length; i++) {
-        if (i === 0 && useReply) {
-          await message.reply({ content: chunks[i], allowedMentions: { repliedUser: true } });
+      const { text, files } = await parseOutbound(reply);
+
+      // Text chunks, unless the reply was *only* attachment tokens (then chunk() would
+      // emit the '(no reply)' placeholder — suppress it so we send a files-only message).
+      let chunks = chunk(text);
+      if (files.length && chunks.length === 1 && chunks[0] === '(no reply)') chunks = [];
+
+      if (chunks.length === 0 && files.length) {
+        // Files-only reply: no content, just the attachments.
+        if (useReply) {
+          await message.reply({ files, allowedMentions: { repliedUser: true } });
         } else {
-          await message.channel.send({ content: chunks[i], allowedMentions: { parse: [] } });
+          await message.channel.send({ files, allowedMentions: { parse: [] } });
+        }
+      } else {
+        for (let i = 0; i < chunks.length; i++) {
+          const first = i === 0;
+          const opts = { content: chunks[i] };
+          if (first && files.length) opts.files = files; // attach to the first message only
+          if (first && useReply) {
+            await message.reply({ ...opts, allowedMentions: { repliedUser: true } });
+          } else {
+            await message.channel.send({ ...opts, allowedMentions: { parse: [] } });
+          }
         }
       }
     } catch (err) {

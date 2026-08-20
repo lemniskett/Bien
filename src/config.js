@@ -76,6 +76,7 @@ export const config = {
   remindersDir: path.join(workspaceDir, 'reminders'),
   schedulesDir: path.join(workspaceDir, 'schedules'),
   uploadsDir: path.join(workspaceDir, 'uploads'),
+  outboxDir: path.join(workspaceDir, 'outbox'),
   agentsFile: path.join(workspaceDir, 'AGENTS.md'),
   sessionsFile: path.join(dataDir, 'sessions.json'),
   rosterFile: path.join(dataDir, 'roster.json'),
@@ -86,7 +87,7 @@ export const config = {
   nagIntervalMs: optionalInt('NAG_INTERVAL_MS', 300_000),
   nagMax: optionalInt('NAG_MAX', 12),
   aiTimeoutMs: optionalInt('AI_TIMEOUT_MS', 120_000),
-  sessionTtlMs: optionalInt('SESSION_TTL_MS', 300_000), // 5 min sliding window for active convo
+  sessionTtlMs: optionalInt('SESSION_TTL_MS', 150_000), // 150s sliding window for active convo
 };
 
 /**

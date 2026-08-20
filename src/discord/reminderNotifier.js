@@ -92,11 +92,11 @@ export async function handleAckInteraction(interaction) {
   const id = interaction.customId.slice(ACK_PREFIX.length);
   const reminder = await getReminder(id);
   if (!reminder) {
-    await interaction.reply({ content: 'That reminder is already gone, nya.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: 'that reminder is already gone, nya.', flags: MessageFlags.Ephemeral });
     return true;
   }
   if (reminder.status !== 'nagging' && reminder.status !== 'scheduled') {
-    await interaction.reply({ content: 'Already handled.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: 'already handled, nya. pay attention, nya.', flags: MessageFlags.Ephemeral });
     return true;
   }
   await updateReminder(id, { status: 'acknowledged' });

@@ -20,8 +20,8 @@ The backend is deliberately thin. It provides only two things the AI can't do al
    - **schedules** — recurring cron jobs ("every day at 7 AM") that fire on cadence with
      no acknowledgment; each either posts a fixed message or re-runs the AI.
 
-The AI never hand-writes JSON. It calls `bien reminder add …` / `bien schedule add …`,
-which validate input, resolve who to tag, and manage the files.
+The AI never hand-writes JSON. It calls `bien reminder add|update …` /
+`bien schedule add|update …`, which validate input, resolve who to tag, and manage the files.
 
 ## Setup
 
@@ -80,9 +80,15 @@ You can also run it yourself for inspection/testing:
 ```bash
 npm run bien -- list
 npm run bien -- reminder add --text "test" --due 2026-01-01T00:00:00Z
+npm run bien -- reminder update <id> --due 2026-01-02T00:00:00Z
 npm run bien -- schedule add --title t --cron "0 7 * * *" --action-type message --action "hi"
+npm run bien -- schedule update <id> --cron "0 8 * * *"
 npm run bien -- roster list
 ```
+
+`update` patches an existing item in place — only the flags you pass change. Rescheduling a
+reminder's `--due` restarts its nag cycle; a new `--cron` re-derives the next fire time.
+Use it instead of adding a replacement, or the original keeps firing alongside the new one.
 
 Discord ids come from `BIEN_USER_ID` / `BIEN_CHANNEL_ID` / `BIEN_GUILD_ID` env vars
 (the bot injects these per message), or `--user/--channel/--guild` overrides.
@@ -109,7 +115,10 @@ data/                 bot-owned state (sessions.json, roster.json)
 ```
 
 To change Bien's behavior or persona, edit `workspace/AGENTS.md` and restart — it's a plain
-committed file, no build step.
+committed file, no build step. One catch: `AGENTS.md` is injected when a channel's AI
+session is first bootstrapped, and sessions persist in `data/sessions.json` across restarts.
+An already-running conversation keeps the old contract, so delete `data/sessions.json` (or
+just the affected channel's entry) to make the change take effect immediately.
 
 ## Safety note
 

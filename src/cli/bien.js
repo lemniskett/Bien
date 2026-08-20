@@ -5,12 +5,14 @@ import {
   listReminders,
   getReminder,
   updateReminder,
+  editReminder,
 } from '../reminders/store.js';
 import {
   createSchedule,
   listSchedules,
   getSchedule,
   updateSchedule,
+  editSchedule,
 } from '../schedules/store.js';
 import { nextFireUtc } from '../schedules/cron.js';
 import { readRoster, resolveTargets, addAlias } from '../roster.js';
@@ -59,6 +61,18 @@ function ids(args) {
     channelId: args.first('channel', process.env.BIEN_CHANNEL_ID),
     guildId: args.first('guild', process.env.BIEN_GUILD_ID),
   };
+}
+
+/**
+ * Read a flag that must carry a value. `parseArgs` records a valueless `--foo` as boolean
+ * `true`; on an update that would silently overwrite a real field with garbage, so reject it.
+ * Returns undefined when the flag is absent.
+ */
+function strFlag(args, name) {
+  if (!args.has(name)) return undefined;
+  const v = args.first(name);
+  if (v === true) die(`--${name} needs a value`);
+  return v;
 }
 
 function fmtLocal(iso) {
@@ -112,7 +126,34 @@ async function cmdReminder(args) {
     await updateReminder(id, { status: 'cancelled' });
     ok(`✓ reminder ${id} cancelled`);
   }
-  die('usage: bien reminder <add|cancel> ...');
+  if (sub === 'update') {
+    const id = args._[2];
+    if (!id) {
+      die('usage: bien reminder update <id> [--text <str>] [--due <UTC ISO>] [--recurrence <r>] [--target <t>...]');
+    }
+    const { createdBy } = ids(args);
+    const patch = {};
+    const text = strFlag(args, 'text');
+    if (text !== undefined) patch.text = text;
+    const due = strFlag(args, 'due');
+    if (due !== undefined) patch.dueAt = due;
+    const recurrence = strFlag(args, 'recurrence');
+    if (recurrence !== undefined) patch.recurrence = recurrence;
+    if (args.has('target')) {
+      const targets = await resolveOrDie(args, createdBy);
+      if (!targets || !targets.length) die('--target needs a value');
+      patch.targets = targets;
+    }
+    if (Object.keys(patch).length === 0) {
+      die('nothing to update — pass at least one of --text/--due/--recurrence/--target');
+    }
+    const rec = await editReminder(id, patch).catch((e) => die(e.message));
+    ok(
+      `✓ reminder ${rec.id} updated: "${rec.text}" due ${fmtLocal(rec.due_at)} → ${describeTargets(rec.targets)}` +
+        (rec.recurrence !== 'none' ? ` (repeats ${rec.recurrence})` : ''),
+    );
+  }
+  die('usage: bien reminder <add|update|cancel> ...');
 }
 
 async function cmdSchedule(args) {
@@ -143,7 +184,38 @@ async function cmdSchedule(args) {
     await updateSchedule(id, { status: sub === 'pause' ? 'paused' : 'cancelled' });
     ok(`✓ schedule ${id} ${sub === 'pause' ? 'paused' : 'cancelled'}`);
   }
-  die('usage: bien schedule <add|pause|cancel> ...');
+  if (sub === 'update') {
+    const id = args._[2];
+    if (!id) {
+      die('usage: bien schedule update <id> [--title <str>] [--cron <expr>] [--action-type <ai|message>] [--action <str>] [--cron-source <str>] [--target <t>...]');
+    }
+    const { createdBy } = ids(args);
+    const patch = {};
+    const title = strFlag(args, 'title');
+    if (title !== undefined) patch.title = title;
+    const cron = strFlag(args, 'cron');
+    if (cron !== undefined) patch.cron = cron;
+    const cronSource = strFlag(args, 'cron-source');
+    if (cronSource !== undefined) patch.cronSource = cronSource;
+    const actionType = strFlag(args, 'action-type');
+    if (actionType !== undefined) patch.actionType = actionType;
+    const action = strFlag(args, 'action');
+    if (action !== undefined) patch.action = action;
+    if (args.has('target')) {
+      const targets = await resolveOrDie(args, createdBy);
+      if (!targets || !targets.length) die('--target needs a value');
+      patch.targets = targets;
+    }
+    if (Object.keys(patch).length === 0) {
+      die('nothing to update — pass at least one of --title/--cron/--action-type/--action/--cron-source/--target');
+    }
+    const rec = await editSchedule(id, patch).catch((e) => die(e.message));
+    ok(
+      `✓ schedule ${rec.id} updated: "${rec.title}" (${rec.cron}) next fires ${fmtLocal(rec.next_fire_at)} → ${describeTargets(rec.targets)}` +
+        (rec.status !== 'active' ? ` [still ${rec.status}]` : ''),
+    );
+  }
+  die('usage: bien schedule <add|update|pause|cancel> ...');
 }
 
 async function cmdList(args) {
@@ -216,8 +288,10 @@ async function main() {
       die(
         'usage: bien <reminder|schedule|list|roster> ...\n' +
           '  reminder add --text <str> --due <UTC ISO> [--recurrence none|daily|weekly] [--target <t>...]\n' +
+          '  reminder update <id> [--text <str>] [--due <UTC ISO>] [--recurrence <r>] [--target <t>...]\n' +
           '  reminder cancel <id>\n' +
           '  schedule add --title <str> --cron <expr> --action-type <ai|message> --action <str> [--target <t>...]\n' +
+          '  schedule update <id> [--title <str>] [--cron <expr>] [--action-type <t>] [--action <str>] [--target <t>...]\n' +
           '  schedule pause|cancel <id>\n' +
           '  list [reminders|schedules]\n' +
           '  roster [list] | roster alias <name> <target>',

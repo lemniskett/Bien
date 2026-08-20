@@ -31,6 +31,14 @@ export function createScheduler({ client, runner }) {
     const reminders = await listReminders();
     for (const r of reminders) {
       try {
+        // A 'scheduled' reminder carrying a message id was rescheduled after it had already
+        // fired (fresh ones have none). Its old ping still shows a live Acknowledge button,
+        // and that button would ack the *new* due date — strip it before it can be clicked.
+        if (r.status === 'scheduled' && r.last_message_id) {
+          await clearReminderButton(client, r.channel_id, r.last_message_id);
+          await saveReminder({ ...r, last_message_id: null });
+          r.last_message_id = null;
+        }
         if (r.status === 'scheduled' && new Date(r.due_at).getTime() <= now) {
           const msg = await sendReminderPing(client, r, { pingNum: 1, nagMax: config.nagMax });
           await saveReminder({

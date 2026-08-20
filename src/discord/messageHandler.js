@@ -110,7 +110,7 @@ export function createMessageHandler({ client, runner }) {
     } catch (err) {
       logger.error(`[message] handler error: ${err.stack || err.message}`);
       try {
-        await message.reply({ content: '…something broke. Try again, nya.', allowedMentions: { parse: [] } });
+        await message.reply({ content: '…something broke, nya. try again, nya.', allowedMentions: { parse: [] } });
       } catch {
         /* ignore */
       }

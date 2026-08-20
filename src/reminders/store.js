@@ -19,6 +19,24 @@ export const REMINDER_STATUSES = [
 
 const fileFor = (id) => path.join(config.remindersDir, `${id}.json`);
 
+function assertText(text) {
+  if (!text || !String(text).trim()) throw new Error('reminder text is required');
+  return String(text).trim();
+}
+
+function assertDue(dueAt) {
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) throw new Error(`--due is not a valid date: ${dueAt}`);
+  return due.toISOString();
+}
+
+function assertRecurrence(recurrence) {
+  if (!RECURRENCES.includes(recurrence)) {
+    throw new Error(`recurrence must be one of ${RECURRENCES.join('|')}`);
+  }
+  return recurrence;
+}
+
 /**
  * Build + persist a new reminder. `dueAt` must be an ISO string (UTC). `targets` is an
  * array of resolved tokens (everyone | here | user:<id>); defaults to the creator.
@@ -32,17 +50,13 @@ export async function createReminder({
   channelId,
   guildId,
 }) {
-  if (!text || !String(text).trim()) throw new Error('reminder text is required');
-  const due = new Date(dueAt);
-  if (Number.isNaN(due.getTime())) throw new Error(`--due is not a valid date: ${dueAt}`);
-  if (!RECURRENCES.includes(recurrence)) {
-    throw new Error(`recurrence must be one of ${RECURRENCES.join('|')}`);
-  }
+  const cleanText = assertText(text);
+  const iso = assertDue(dueAt);
+  assertRecurrence(recurrence);
   if (!createdBy) throw new Error('no user id available (set BIEN_USER_ID or pass --user)');
   if (!channelId) throw new Error('no channel id available (set BIEN_CHANNEL_ID or pass --channel)');
 
   const resolvedTargets = targets && targets.length ? targets : [`user:${createdBy}`];
-  const iso = due.toISOString();
   const record = {
     id: newId(),
     created_at: new Date().toISOString(),
@@ -50,7 +64,7 @@ export async function createReminder({
     channel_id: String(channelId),
     guild_id: guildId ? String(guildId) : null,
     targets: resolvedTargets,
-    text: String(text).trim(),
+    text: cleanText,
     due_at: iso,
     recurrence,
     status: 'scheduled',
@@ -90,6 +104,39 @@ export async function updateReminder(id, patch) {
   const next = { ...current, ...patch };
   await saveReminder(next);
   return next;
+}
+
+/**
+ * Validated in-place edit. Only the fields present in `patch` change; everything else on
+ * the record is preserved. Changing `dueAt` restarts the fire cycle (back to 'scheduled',
+ * nag counters cleared) — `last_message_id` is deliberately kept so the scheduler can strip
+ * the now-stale Acknowledge button from the old ping.
+ *
+ * @param {string} id
+ * @param {{ text?: string, dueAt?: string, recurrence?: string, targets?: string[] }} patch
+ */
+export async function editReminder(id, { text, dueAt, recurrence, targets } = {}) {
+  const current = await getReminder(id);
+  if (!current) throw new Error(`no reminder with id ${id}`);
+  if (TERMINAL_STATUSES.includes(current.status)) {
+    throw new Error(`reminder ${id} is ${current.status} — add a new one instead`);
+  }
+
+  const next = { ...current };
+  if (text !== undefined) next.text = assertText(text);
+  if (recurrence !== undefined) next.recurrence = assertRecurrence(recurrence);
+  if (targets !== undefined && targets.length) next.targets = targets;
+  if (dueAt !== undefined) {
+    const iso = assertDue(dueAt);
+    next.due_at = iso;
+    next.next_fire_at = iso;
+    next.status = 'scheduled';
+    next.fired_count = 0;
+    next.last_fired_at = null;
+    next.rolled = false;
+  }
+
+  return saveReminder(next);
 }
 
 /** Delete a reminder record file. Best-effort — a missing file is fine. */

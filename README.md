@@ -9,9 +9,10 @@ Japanese black cat. You just talk to it — "@Bien remind me to drink water at 5
 
 The backend is deliberately thin. It provides only two things the AI can't do alone:
 
-1. **A conversational relay.** Every mention is forwarded to the AI CLI, which reads
-   `workspace/AGENTS.md`, interprets your intent, reads/writes files in `workspace/`,
-   and replies. All free-form memory (expenses, notes, lists, journals) is just Markdown
+1. **A conversational relay.** Every message aimed at him — a tag, his name, a reply to one
+   of his messages, or a follow-up inside the short session window — is forwarded to the AI
+   CLI along with whatever message was replied to. It reads `workspace/AGENTS.md`, interprets
+   your intent, reads/writes files in `workspace/`, and replies. All free-form memory (expenses, notes, lists, journals) is just Markdown
    the AI invents — no backend code per feature.
 2. **A time-based delivery engine.** A scheduler polls every minute and drives two
    structured item types the AI creates via the `bien` CLI:
@@ -70,6 +71,13 @@ Optional tuning: `WORKSPACE_DIR`, `POLL_INTERVAL_MS`, `NAG_INTERVAL_MS`, `NAG_MA
 @Bien I spent 50k on lunch today
 @Bien what did I spend this week?
 ```
+
+**When he answers:** tag him, say his name, reply to one of his own messages, or just keep
+talking within ~150s of your last message to him. Replying works even with the ping turned
+off, and he sees the message you replied to — so "make it 6 instead" on his own reminder
+confirmation edits that reminder instead of creating a second one, and replying to a photo
+with "bien what is this?" works. Replying to *someone else's* message still needs his name
+or a tag, so he doesn't interject in every conversation.
 
 To stop a nagging reminder, click the **Acknowledge ✅** button on the ping.
 
